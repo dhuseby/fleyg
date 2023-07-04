@@ -108,18 +108,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
             SwarmEvent::NewListenAddr { address, .. } => {
                 info!("Listening on {address:?}");
             }
-            SwarmEvent::Behaviour(FleygBehaviorEvent::KeepAlive) => {
-                info!("KeepAlive");
-            }
             SwarmEvent::Behaviour(FleygBehaviorEvent::Ping(event)) => {
-                info!("Ping: {event:?}");
+                info!("Ping From: {event:?}");
             }
             SwarmEvent::Behaviour(FleygBehaviorEvent::Identify(event)) => match event {
                 identify::Event::Sent { peer_id, .. } => {
-                    info!("Identify Sent: {peer_id}");
+                    info!("Identify From Peer: {peer_id}");
                 }
                 identify::Event::Received { info, .. } => {
-                    info!("Identify Received: {info:?}");
+                    info!("Identify Received By Peer: {info:?}");
                 }
                 _ => {}
             },
