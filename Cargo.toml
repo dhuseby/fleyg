@@ -1,0 +1,14 @@
+[package]
+name = "fleyg"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+async-std = { version = "1.12.0", features = ["attributes"] }
+env_logger = "0.10.0"
+futures = "0.3.28"
+libp2p = { version = "0.52.1", features = ["async-std", "yamux", "macros", "tcp", "noise", "identify", "ping"] }
+log = "0.4.19"
+structopt = "0.3.26"
