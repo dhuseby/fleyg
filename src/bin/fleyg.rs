@@ -3,7 +3,7 @@ use futures::prelude::*;
 use libp2p::{
     core::upgrade,
     identify, identity, noise, ping,
-    swarm::{NetworkBehaviour, SwarmBuilder, SwarmEvent},
+    swarm::{keep_alive, NetworkBehaviour, SwarmBuilder, SwarmEvent},
     tcp, yamux, Multiaddr, Transport,
 };
 use log::*;
@@ -46,16 +46,25 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // our network behavior combines ping and identify
     #[derive(NetworkBehaviour)]
-    #[behaviour(to_swarm = "FleygBehaviorEvent")]
+    //#[behaviour(to_swarm = "FleygBehaviorEvent")]
     struct FleygBehavior {
+        keep_alive: keep_alive::Behaviour,
         ping: ping::Behaviour,
         identify: identify::Behaviour,
     }
 
+    /*
     #[allow(clippy::large_enum_variant)]
     enum FleygBehaviorEvent {
+        KeepAlive(keep_alive::Event),
         Ping(ping::Event),
         Identify(identify::Event),
+    }
+
+    impl From<keep_alive::Event> for FleygBehaviorEvent {
+        fn from(event: keep_alive::Event) -> Self {
+            FleygBehaviorEvent::KeepAlive(event)
+        }
     }
 
     impl From<ping::Event> for FleygBehaviorEvent {
@@ -69,15 +78,21 @@ async fn main() -> Result<(), Box<dyn Error>> {
             FleygBehaviorEvent::Identify(event)
         }
     }
+    */
 
     // build the swarm
     let mut swarm = {
+        let keep_alive = keep_alive::Behaviour::default();
         let ping = ping::Behaviour::default();
         let identify = identify::Behaviour::new(identify::Config::new(
             "/fleyg/0.1".into(),
             local_key.public(),
         ));
-        let behavior = FleygBehavior { ping, identify };
+        let behavior = FleygBehavior {
+            keep_alive,
+            ping,
+            identify,
+        };
         SwarmBuilder::with_async_std_executor(transport, behavior, local_peer_id).build()
     };
 
@@ -95,12 +110,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
             SwarmEvent::NewListenAddr { address, .. } => {
                 info!("Listening on {address:?}");
             }
+            SwarmEvent::Behaviour(event) => {
+                info!("{event:?}");
+            }
+            /*
             SwarmEvent::Behaviour(FleygBehaviorEvent::Ping(event)) => {
                 info!("Ping: {event:?}");
             }
             SwarmEvent::Behaviour(FleygBehaviorEvent::Identify(event)) => {
                 info!("Identify: {event:?}");
             }
+            */
             _ => {}
         }
     }
