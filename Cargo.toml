@@ -12,3 +12,4 @@ futures = "0.3.28"
 libp2p = { version = "0.52.1", features = ["async-std", "yamux", "macros", "tcp", "noise", "identify", "ping"] }
 log = "0.4.19"
 structopt = "0.3.26"
+void = "1.0.2"

@@ -46,24 +46,23 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // our network behavior combines ping and identify
     #[derive(NetworkBehaviour)]
-    //#[behaviour(to_swarm = "FleygBehaviorEvent")]
+    #[behaviour(to_swarm = "FleygBehaviorEvent")]
     struct FleygBehavior {
         keep_alive: keep_alive::Behaviour,
         ping: ping::Behaviour,
         identify: identify::Behaviour,
     }
 
-    /*
     #[allow(clippy::large_enum_variant)]
     enum FleygBehaviorEvent {
-        KeepAlive(keep_alive::Event),
+        KeepAlive,
         Ping(ping::Event),
         Identify(identify::Event),
     }
 
-    impl From<keep_alive::Event> for FleygBehaviorEvent {
-        fn from(event: keep_alive::Event) -> Self {
-            FleygBehaviorEvent::KeepAlive(event)
+    impl From<void::Void> for FleygBehaviorEvent {
+        fn from(_event: void::Void) -> Self {
+            FleygBehaviorEvent::KeepAlive
         }
     }
 
@@ -78,7 +77,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
             FleygBehaviorEvent::Identify(event)
         }
     }
-    */
 
     // build the swarm
     let mut swarm = {
@@ -110,17 +108,21 @@ async fn main() -> Result<(), Box<dyn Error>> {
             SwarmEvent::NewListenAddr { address, .. } => {
                 info!("Listening on {address:?}");
             }
-            SwarmEvent::Behaviour(event) => {
-                info!("{event:?}");
+            SwarmEvent::Behaviour(FleygBehaviorEvent::KeepAlive) => {
+                info!("KeepAlive");
             }
-            /*
             SwarmEvent::Behaviour(FleygBehaviorEvent::Ping(event)) => {
                 info!("Ping: {event:?}");
             }
-            SwarmEvent::Behaviour(FleygBehaviorEvent::Identify(event)) => {
-                info!("Identify: {event:?}");
-            }
-            */
+            SwarmEvent::Behaviour(FleygBehaviorEvent::Identify(event)) => match event {
+                identify::Event::Sent { peer_id, .. } => {
+                    info!("Identify Sent: {peer_id}");
+                }
+                identify::Event::Received { info, .. } => {
+                    info!("Identify Received: {info:?}");
+                }
+                _ => {}
+            },
             _ => {}
         }
     }
