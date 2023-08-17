@@ -89,6 +89,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     info!("Identify Error: {peer_id} - {error}");
                     break;
                 }
+                LocalProtocolsChanged { peer_id, protocols } => {
+                    info!("Protocols changed: {peer_id}");
+                    for p in &protocols {
+                        info!("\t{p}");
+                    }
+                }
             }
         }
     }

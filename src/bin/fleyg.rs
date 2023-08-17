@@ -7,9 +7,10 @@ use libp2p::{
     identify::{self, Event as IdentifyEvent},
     identity,
     kad::{
-        record::store::MemoryStore, GetClosestPeersError, Kademlia, KademliaConfig, KademliaEvent,
+        record::store::MemoryStore, GetClosestPeersError, InboundRequest, Kademlia, KademliaConfig, KademliaEvent, KademliaStoreInserts,
         QueryResult,
     },
+    ping,
     swarm::{keep_alive, NetworkBehaviour, SwarmBuilder, SwarmEvent},
     PeerId,
 };
@@ -43,6 +44,7 @@ struct FleygBehavior {
     keep_alive: keep_alive::Behaviour,
     identify: identify::Behaviour,
     kademlia: Kademlia<MemoryStore>,
+    ping: ping::Behaviour,
 }
 
 #[async_std::main]
@@ -72,6 +74,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let kademlia = {
             let mut cfg = KademliaConfig::default();
             cfg.set_query_timeout(Duration::from_secs(5 * 60));
+            cfg.set_record_filtering(KademliaStoreInserts::FilterBoth);
             let store = MemoryStore::new(local_peer_id);
             let mut behavior = Kademlia::with_config(local_peer_id, store, cfg);
             for peer in &BOOTNODES {
@@ -82,17 +85,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
             behavior
         };
+        let ping = ping::Behaviour::new(ping::Config::default());
 
         let behavior = FleygBehavior {
             keep_alive,
             identify,
             kademlia,
+            ping,
         };
         SwarmBuilder::with_async_std_executor(transport, behavior, local_peer_id).build()
     };
 
     // listen on all interfaces
-    swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
+    swarm.listen_on("/ip4/0.0.0.0/tcp/4920".parse()?)?;
 
     // bootstrap into the DHT
     //swarm.behaviour_mut().kademlia.bootstrap()?;
@@ -108,31 +113,23 @@ async fn main() -> Result<(), Box<dyn Error>> {
     loop {
         let e = swarm.select_next_some().await;
         match e {
-            SwarmEvent::ConnectionEstablished { peer_id, .. } => {
-                info!("Connection established to {peer_id}");
-            }
-            SwarmEvent::ConnectionClosed { peer_id, .. } => {
-                info!("Connection closed to {peer_id}");
-            }
-            SwarmEvent::IncomingConnection { send_back_addr, .. } => {
-                info!("Incoming connection from {send_back_addr:?}");
-            }
-            SwarmEvent::NewListenAddr { address, .. } => {
-                info!("Listening on {address:?}");
-            }
-            SwarmEvent::Dialing { peer_id, .. } => {
-                info!(
-                    "Dialing {}",
-                    if peer_id.is_some() {
-                        peer_id.unwrap().to_base58()
-                    } else {
-                        "None".into()
-                    }
-                );
-            }
+            SwarmEvent::ExpiredListenAddr { .. } |
+            SwarmEvent::ListenerClosed { .. } |
+            SwarmEvent::ListenerError { .. } |
+            SwarmEvent::ConnectionEstablished { .. } |
+            SwarmEvent::ConnectionClosed { .. } |
+            SwarmEvent::IncomingConnection { .. } |
+            SwarmEvent::IncomingConnectionError { .. } |
+            SwarmEvent::OutgoingConnectionError { .. } |
+            SwarmEvent::NewListenAddr { .. } |
+            SwarmEvent::Dialing { .. } => {}
             SwarmEvent::Behaviour(behavior) => match behavior {
+                FleygBehaviorEvent::Ping(_) |
+                FleygBehaviorEvent::KeepAlive(_) => {}
                 FleygBehaviorEvent::Identify(event) => match event {
-                    IdentifyEvent::Received { peer_id, info } => {
+                    IdentifyEvent::Received { info, .. } => {
+                    //IdentifyEvent::Received { _peer_id, info } => {
+                        /*
                         info!("Identify Received: {peer_id}");
                         info!("\tProtocol: {}", info.protocol_version);
                         info!("\tAgent: {}", info.agent_version);
@@ -141,24 +138,40 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         for sp in &info.protocols {
                             info!("\t\t{}", sp);
                         }
+                        */
 
                         // add our observed address
                         swarm.add_external_address(info.observed_addr.clone());
                     }
-                    IdentifyEvent::Sent { peer_id } => {
-                        info!("Identify Sent: {peer_id}");
+                    IdentifyEvent::Sent { .. } => {
+                    //IdentifyEvent::Sent { _peer_id } => {
+                        //info!("Identify Sent: {peer_id}");
                     }
-                    IdentifyEvent::Pushed { peer_id } => {
-                        info!("Idenfity Pushed: {peer_id}");
+                    IdentifyEvent::Pushed { .. } => {
+                    //IdentifyEvent::Pushed { _peer_id } => {
+                        //info!("Idenfity Pushed: {peer_id}");
                     }
-                    IdentifyEvent::Error { peer_id, error } => {
-                        info!("Identify Error: {peer_id} - {error}");
+                    IdentifyEvent::Error { .. } => {
+                    //IdentifyEvent::Error { _peer_id, _error } => {
+                        //info!("Identify Error: {peer_id} - {error}");
+                    }
+                    IdentifyEvent::LocalProtocolsChanged { peer_id, protocols } => {
+                        info!("Advertising to: {peer_id}");
+                        for p in &protocols {
+                            info!("\t{p}")
+                        }
                     }
                 },
                 FleygBehaviorEvent::Kademlia(kad) => match kad {
                     KademliaEvent::InboundRequest { request } => match request {
-                        _ => {
-                            info!("InboundRequest: {request:?}");
+                        InboundRequest::FindNode { .. } => {}
+                        InboundRequest::GetProvider { .. } => {}
+                        InboundRequest::AddProvider { .. } => {}
+                        InboundRequest::GetRecord { .. } => {}
+                        InboundRequest::PutRecord { record, .. } => {
+                            if let Some(rec) = record {
+                                info!("Put: {} -> {}", hex::encode(&rec.key.to_vec()), hex::encode(&rec.value[..]));
+                            }
                         }
                     },
                     KademliaEvent::OutboundQueryProgressed { result, .. } => match result {
@@ -179,26 +192,24 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         },
                         _ => {}
                     },
-                    KademliaEvent::RoutingUpdated { peer, .. } => {
-                        info!("Kademlia Routing Updated: {peer:?}");
+                    KademliaEvent::RoutingUpdated { .. } => {
+                    //KademliaEvent::RoutingUpdated { _peer, .. } => {
+                        //info!("Kademlia Routing Updated: {peer:?}");
                     }
-                    KademliaEvent::UnroutablePeer { peer } => {
-                        info!("Kademlia Unroutable Peer: {peer:?}");
+                    KademliaEvent::UnroutablePeer { .. } => {
+                    //KademliaEvent::UnroutablePeer { _peer } => {
+                        //info!("Kademlia Unroutable Peer: {peer:?}");
                     }
-                    KademliaEvent::RoutablePeer { peer, .. } => {
-                        info!("Kademlia Routable Peer: {peer:?}");
+                    KademliaEvent::RoutablePeer { .. } => {
+                    //KademliaEvent::RoutablePeer { _peer, .. } => {
+                        //info!("Kademlia Routable Peer: {peer:?}");
                     }
-                    KademliaEvent::PendingRoutablePeer { peer, .. } => {
-                        info!("Kademlia Pending Routable Peer: {peer:?}");
+                    KademliaEvent::PendingRoutablePeer { .. } => {
+                    //KademliaEvent::PendingRoutablePeer { _peer, .. } => {
+                        //info!("Kademlia Pending Routable Peer: {peer:?}");
                     }
                 },
-                _ => {
-                    info!("Swarm::Behaviour: {behavior:?}");
-                }
             },
-            _ => {
-                info!("Swarm: {e:?}");
-            }
         }
     }
 
