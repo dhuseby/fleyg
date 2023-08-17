@@ -7,8 +7,8 @@ use libp2p::{
     identify::{self, Event as IdentifyEvent},
     identity,
     kad::{
-        record::store::MemoryStore, GetClosestPeersError, InboundRequest, Kademlia, KademliaConfig, KademliaEvent, KademliaStoreInserts,
-        QueryResult,
+        record::store::MemoryStore, GetClosestPeersError, InboundRequest, Kademlia, KademliaConfig,
+        KademliaEvent, KademliaStoreInserts, QueryResult,
     },
     ping,
     swarm::{keep_alive, NetworkBehaviour, SwarmBuilder, SwarmEvent},
@@ -113,23 +113,21 @@ async fn main() -> Result<(), Box<dyn Error>> {
     loop {
         let e = swarm.select_next_some().await;
         match e {
-            SwarmEvent::ExpiredListenAddr { .. } |
-            SwarmEvent::ListenerClosed { .. } |
-            SwarmEvent::ListenerError { .. } |
-            SwarmEvent::ConnectionEstablished { .. } |
-            SwarmEvent::ConnectionClosed { .. } |
-            SwarmEvent::IncomingConnection { .. } |
-            SwarmEvent::IncomingConnectionError { .. } |
-            SwarmEvent::OutgoingConnectionError { .. } |
-            SwarmEvent::NewListenAddr { .. } |
-            SwarmEvent::Dialing { .. } => {}
+            SwarmEvent::ExpiredListenAddr { .. }
+            | SwarmEvent::ListenerClosed { .. }
+            | SwarmEvent::ListenerError { .. }
+            | SwarmEvent::ConnectionEstablished { .. }
+            | SwarmEvent::ConnectionClosed { .. }
+            | SwarmEvent::IncomingConnection { .. }
+            | SwarmEvent::IncomingConnectionError { .. }
+            | SwarmEvent::OutgoingConnectionError { .. }
+            | SwarmEvent::NewListenAddr { .. }
+            | SwarmEvent::Dialing { .. } => {}
             SwarmEvent::Behaviour(behavior) => match behavior {
-                FleygBehaviorEvent::Ping(_) |
-                FleygBehaviorEvent::KeepAlive(_) => {}
+                FleygBehaviorEvent::Ping(_) | FleygBehaviorEvent::KeepAlive(_) => {}
                 FleygBehaviorEvent::Identify(event) => match event {
-                    IdentifyEvent::Received { info, .. } => {
-                    //IdentifyEvent::Received { _peer_id, info } => {
-                        /*
+                    //IdentifyEvent::Received { info, .. } => {
+                    IdentifyEvent::Received { peer_id, info } => {
                         info!("Identify Received: {peer_id}");
                         info!("\tProtocol: {}", info.protocol_version);
                         info!("\tAgent: {}", info.agent_version);
@@ -138,21 +136,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         for sp in &info.protocols {
                             info!("\t\t{}", sp);
                         }
-                        */
 
                         // add our observed address
                         swarm.add_external_address(info.observed_addr.clone());
                     }
                     IdentifyEvent::Sent { .. } => {
-                    //IdentifyEvent::Sent { _peer_id } => {
+                        //IdentifyEvent::Sent { _peer_id } => {
                         //info!("Identify Sent: {peer_id}");
                     }
                     IdentifyEvent::Pushed { .. } => {
-                    //IdentifyEvent::Pushed { _peer_id } => {
+                        //IdentifyEvent::Pushed { _peer_id } => {
                         //info!("Idenfity Pushed: {peer_id}");
                     }
                     IdentifyEvent::Error { .. } => {
-                    //IdentifyEvent::Error { _peer_id, _error } => {
+                        //IdentifyEvent::Error { _peer_id, _error } => {
                         //info!("Identify Error: {peer_id} - {error}");
                     }
                     IdentifyEvent::LocalProtocolsChanged { peer_id, protocols } => {
@@ -170,7 +167,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         InboundRequest::GetRecord { .. } => {}
                         InboundRequest::PutRecord { record, .. } => {
                             if let Some(rec) = record {
-                                info!("Put: {} -> {}", hex::encode(&rec.key.to_vec()), hex::encode(&rec.value[..]));
+                                info!(
+                                    "Put: {} -> {}",
+                                    hex::encode(&rec.key.to_vec()),
+                                    hex::encode(&rec.value[..])
+                                );
                             }
                         }
                     },
@@ -193,19 +194,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         _ => {}
                     },
                     KademliaEvent::RoutingUpdated { .. } => {
-                    //KademliaEvent::RoutingUpdated { _peer, .. } => {
+                        //KademliaEvent::RoutingUpdated { _peer, .. } => {
                         //info!("Kademlia Routing Updated: {peer:?}");
                     }
                     KademliaEvent::UnroutablePeer { .. } => {
-                    //KademliaEvent::UnroutablePeer { _peer } => {
+                        //KademliaEvent::UnroutablePeer { _peer } => {
                         //info!("Kademlia Unroutable Peer: {peer:?}");
                     }
                     KademliaEvent::RoutablePeer { .. } => {
-                    //KademliaEvent::RoutablePeer { _peer, .. } => {
+                        //KademliaEvent::RoutablePeer { _peer, .. } => {
                         //info!("Kademlia Routable Peer: {peer:?}");
                     }
                     KademliaEvent::PendingRoutablePeer { .. } => {
-                    //KademliaEvent::PendingRoutablePeer { _peer, .. } => {
+                        //KademliaEvent::PendingRoutablePeer { _peer, .. } => {
                         //info!("Kademlia Pending Routable Peer: {peer:?}");
                     }
                 },
