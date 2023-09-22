@@ -77,27 +77,28 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     for sp in &info.protocols {
                         info!("\t\t{}", sp);
                     }
-                    break;
+                    //break;
                 }
                 Sent { peer_id } => {
                     info!("Identify Sent: {peer_id}");
                 }
-                Pushed { peer_id } => {
+                Pushed { peer_id, info } => {
                     info!("Identify Pushed: {peer_id}");
+                    info!("\tProtocol: {}", info.protocol_version);
+                    info!("\tAgent: {}", info.agent_version);
+                    info!("\tAddr: {}", info.observed_addr);
+                    info!("\tProtocols:");
+                    for sp in &info.protocols {
+                        info!("\t\t{}", sp);
+                    }
                 }
                 Error { peer_id, error } => {
                     info!("Identify Error: {peer_id} - {error}");
-                    break;
-                }
-                LocalProtocolsChanged { peer_id, protocols } => {
-                    info!("Protocols changed: {peer_id}");
-                    for p in &protocols {
-                        info!("\t{p}");
-                    }
+                    //break;
                 }
             }
         }
     }
 
-    Ok(())
+    //Ok(())
 }
